@@ -2,7 +2,7 @@ version: '3'
 
 services:
   wg-gen-to-opn:
-    image: 
+    image: ghcr.io/sebclem/wg-gen-web-to-opnsense:latest
     restart: always
     environment:
       - WG_BASE_URL=
