@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+  wg-gen-to-opn:
+    image: 
+    restart: always
+    environment:
+      - WG_BASE_URL=
+      - WG_AUTH_USER=
+      - WG_AUTH_PASS=
+      - OPN_URL=
+      - OPN_KEY=
+      - OPN_SECRET=
+      - OPN_SERVER_ID=
+      - WATCH_FOLDER=/wg_data
+      - MAPPER_FILE=/data/id_mapper.json
+    volumes:
+      - ./data:/data
+      - ./wg_data:/wg_data
