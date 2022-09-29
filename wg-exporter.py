@@ -1,3 +1,5 @@
+from glob import glob
+from http import client
 import os
 import sys
 import requests
@@ -22,45 +24,23 @@ OPN_SERVER_ID = os.environ.get('OPN_SERVER_ID')
 
 WATCH_FOLDER = os.environ.get('WATCH_FOLDER')
 MAPPER_FILE = os.environ.get('MAPPER_FILE')
+CONF_FOLDER = os.environ.get('CONF_FOLDER')
+
 
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s][%(levelname)8s][%(funcName)25s:%(lineno)s]: %(message)s")
 
 
-def get_token(wg_base_url, wg_auth_user, wg_auth_pass):
-    r = requests.get(
-        urljoin(wg_base_url, "/api/v1.0/auth/oauth2_url"),
-        auth=HTTPBasicAuth(wg_auth_user, wg_auth_pass),
-    )
+def get_wg_clients(confFolder):
+    files = glob(f"{confFolder}/*-*-*-*-*")
+    clients = []
+    for conf in files:
+        f = open(conf)
+        clients.append(json.load(f))
+    return clients
 
-    client_id = r.json()["clientId"]
-    state = r.json()["state"]
-
-    payload = {"clientid": client_id, "code": "", "state": state}
-
-    r = requests.post(
-        urljoin(wg_base_url, "/api/v1.0/auth/oauth2_exchange"),
-        json=payload,
-        auth=HTTPBasicAuth(wg_auth_user, wg_auth_pass),
-    )
-
-    return r.json()
-
-
-def get_wg_clients(wg_base_url,token, wg_auth_user, wg_auth_pass):
-    r = requests.get(
-        urljoin(wg_base_url, "/api/v1.0/client"),
-        auth=HTTPBasicAuth(wg_auth_user, wg_auth_pass),
-        headers={"x-wg-gen-web-auth": token},
-    )
-    return r.json()
-
-def get_wg_server(wg_base_url, token, wg_auth_user, wg_auth_pass):
-    r = requests.get(
-        urljoin(wg_base_url, "/api/v1.0/server"),
-        auth=HTTPBasicAuth(wg_auth_user, wg_auth_pass),
-        headers={"x-wg-gen-web-auth": token},
-    )
-    return r.json()
+def get_wg_server(confFolder):
+    f = open(f"{confFolder}/server.json")
+    return json.load(f)
 
 def get_id_mapper():
     try:
@@ -230,11 +210,11 @@ def reconfigure_server(opn_url, opn_key, opn_secret):
 
 
 def check_env():
-    if WG_BASE_URL is None or WG_AUTH_USER is None or \
-        WG_AUTH_PASS is None or OPN_URL is None or \
+    if OPN_URL is None or \
         OPN_KEY is None or OPN_SECRET is None or \
-        WATCH_FOLDER is None or MAPPER_FILE is None:
-        reset = 'WG_BASE_URL=\nWG_AUTH_USER=\nWG_AUTH_PASS=\nOPN_URL=\nOPN_KEY=\nOPN_SECRET=\nOPN_SERVER_ID=\nWATCH_FOLDER=/wg_data\nMAPPER_FILE=/data/id_mapper.json'
+        WATCH_FOLDER is None or MAPPER_FILE is None or \
+        CONF_FOLDER is None:
+        reset = 'OPN_URL=\nOPN_KEY=\nOPN_SECRET=\nOPN_SERVER_ID=\nCONF_FOLDER=/wg_data\nWATCH_FOLDER=/wg_data\nMAPPER_FILE=/data/id_mapper.json'
         logging.fatal('Please set env varriable :')
         print(reset)
         sys.exit(1)
@@ -245,8 +225,7 @@ def check_env():
 
 def loop(notifier):
     logging.info("Trigger")
-    wg_token = get_token(WG_BASE_URL, WG_AUTH_USER, WG_AUTH_PASS)
-    clients = get_wg_clients(WG_BASE_URL, wg_token, WG_AUTH_USER, WG_AUTH_PASS)
+    clients = get_wg_clients(CONF_FOLDER)
     mapper = get_id_mapper()
     to_edit = []
     to_create = []
@@ -294,7 +273,7 @@ def loop(notifier):
         if client != 'server':
             server_clients.append(new_mapper.get(client))
 
-    server_conf = get_wg_server(WG_BASE_URL, wg_token, WG_AUTH_USER, WG_AUTH_PASS)
+    server_conf = get_wg_server(CONF_FOLDER)
     if new_mapper.get('server') is None:
         uuid = create_server(server_conf, server_clients, OPN_URL, OPN_KEY, OPN_SECRET)
         new_mapper['server'] = uuid
